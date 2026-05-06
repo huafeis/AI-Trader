@@ -618,6 +618,171 @@ def init_database():
     """)
 
     cursor.execute("""
+        CREATE TABLE IF NOT EXISTS experiment_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_id TEXT UNIQUE NOT NULL,
+            event_type TEXT NOT NULL,
+            actor_agent_id INTEGER,
+            target_agent_id INTEGER,
+            object_type TEXT,
+            object_id TEXT,
+            market TEXT,
+            experiment_key TEXT,
+            variant_key TEXT,
+            metadata_json TEXT,
+            created_at TEXT DEFAULT (datetime('now')),
+            FOREIGN KEY (actor_agent_id) REFERENCES agents(id),
+            FOREIGN KEY (target_agent_id) REFERENCES agents(id)
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS experiments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            experiment_key TEXT UNIQUE NOT NULL,
+            title TEXT NOT NULL,
+            description TEXT,
+            status TEXT DEFAULT 'draft',
+            unit_type TEXT DEFAULT 'agent',
+            variants_json TEXT,
+            start_at TEXT,
+            end_at TEXT,
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now'))
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS experiment_assignments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            experiment_key TEXT NOT NULL,
+            unit_type TEXT NOT NULL,
+            unit_id INTEGER NOT NULL,
+            variant_key TEXT NOT NULL,
+            assignment_reason TEXT,
+            metadata_json TEXT,
+            created_at TEXT DEFAULT (datetime('now')),
+            UNIQUE(experiment_key, unit_type, unit_id)
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS agent_reward_ledger (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            agent_id INTEGER NOT NULL,
+            amount INTEGER NOT NULL,
+            reason TEXT NOT NULL,
+            source_type TEXT,
+            source_id TEXT,
+            experiment_key TEXT,
+            variant_key TEXT,
+            status TEXT DEFAULT 'posted',
+            metadata_json TEXT,
+            created_at TEXT DEFAULT (datetime('now')),
+            reversed_at TEXT,
+            FOREIGN KEY (agent_id) REFERENCES agents(id)
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS challenges (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            challenge_key TEXT UNIQUE NOT NULL,
+            title TEXT NOT NULL,
+            description TEXT,
+            market TEXT NOT NULL,
+            symbol TEXT,
+            challenge_type TEXT NOT NULL,
+            status TEXT DEFAULT 'upcoming',
+            scoring_method TEXT DEFAULT 'return-only',
+            initial_capital REAL DEFAULT 100000.0,
+            max_position_pct REAL DEFAULT 100.0,
+            max_drawdown_pct REAL DEFAULT 100.0,
+            start_at TEXT NOT NULL,
+            end_at TEXT NOT NULL,
+            settled_at TEXT,
+            rules_json TEXT,
+            experiment_key TEXT,
+            created_by_agent_id INTEGER,
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now')),
+            FOREIGN KEY (created_by_agent_id) REFERENCES agents(id)
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS challenge_participants (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            challenge_id INTEGER NOT NULL,
+            agent_id INTEGER NOT NULL,
+            status TEXT DEFAULT 'joined',
+            variant_key TEXT,
+            joined_at TEXT DEFAULT (datetime('now')),
+            starting_cash REAL DEFAULT 100000.0,
+            ending_value REAL,
+            return_pct REAL,
+            max_drawdown REAL,
+            trade_count INTEGER DEFAULT 0,
+            rank INTEGER,
+            disqualified_reason TEXT,
+            UNIQUE(challenge_id, agent_id),
+            FOREIGN KEY (challenge_id) REFERENCES challenges(id),
+            FOREIGN KEY (agent_id) REFERENCES agents(id)
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS challenge_submissions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            challenge_id INTEGER NOT NULL,
+            agent_id INTEGER NOT NULL,
+            signal_id INTEGER,
+            submission_type TEXT NOT NULL,
+            content TEXT,
+            prediction_json TEXT,
+            created_at TEXT DEFAULT (datetime('now')),
+            FOREIGN KEY (challenge_id) REFERENCES challenges(id),
+            FOREIGN KEY (agent_id) REFERENCES agents(id)
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS challenge_trades (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            challenge_id INTEGER NOT NULL,
+            agent_id INTEGER NOT NULL,
+            source_signal_id INTEGER NOT NULL,
+            market TEXT NOT NULL,
+            symbol TEXT NOT NULL,
+            side TEXT NOT NULL,
+            price REAL NOT NULL,
+            quantity REAL NOT NULL,
+            executed_at TEXT NOT NULL,
+            created_at TEXT DEFAULT (datetime('now')),
+            FOREIGN KEY (challenge_id) REFERENCES challenges(id),
+            FOREIGN KEY (agent_id) REFERENCES agents(id)
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS challenge_results (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            challenge_id INTEGER NOT NULL,
+            agent_id INTEGER NOT NULL,
+            return_pct REAL,
+            max_drawdown REAL,
+            risk_adjusted_score REAL,
+            quality_score REAL,
+            final_score REAL,
+            rank INTEGER,
+            metrics_json TEXT,
+            settled_at TEXT DEFAULT (datetime('now')),
+            FOREIGN KEY (challenge_id) REFERENCES challenges(id),
+            FOREIGN KEY (agent_id) REFERENCES agents(id)
+        )
+    """)
+
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS market_news_snapshots (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             category TEXT NOT NULL,
@@ -801,6 +966,86 @@ def init_database():
     cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_polymarket_settlements_agent
         ON polymarket_settlements(agent_id, settled_at DESC)
+    """)
+
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_experiment_events_type_created
+        ON experiment_events(event_type, created_at)
+    """)
+
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_experiment_events_actor_created
+        ON experiment_events(actor_agent_id, created_at)
+    """)
+
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_experiment_events_target_created
+        ON experiment_events(target_agent_id, created_at)
+    """)
+
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_experiment_events_experiment_variant_created
+        ON experiment_events(experiment_key, variant_key, created_at)
+    """)
+
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_experiment_events_object
+        ON experiment_events(object_type, object_id)
+    """)
+
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_experiment_assignments_experiment_variant
+        ON experiment_assignments(experiment_key, variant_key)
+    """)
+
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_agent_reward_ledger_agent_created
+        ON agent_reward_ledger(agent_id, created_at)
+    """)
+
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_agent_reward_ledger_source
+        ON agent_reward_ledger(source_type, source_id)
+    """)
+
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_challenges_status_end
+        ON challenges(status, end_at)
+    """)
+
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_challenges_key
+        ON challenges(challenge_key)
+    """)
+
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_challenge_participants_agent
+        ON challenge_participants(agent_id, status)
+    """)
+
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_challenge_participants_challenge_rank
+        ON challenge_participants(challenge_id, rank)
+    """)
+
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_challenge_submissions_challenge_created
+        ON challenge_submissions(challenge_id, created_at)
+    """)
+
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_challenge_trades_challenge_agent
+        ON challenge_trades(challenge_id, agent_id, executed_at)
+    """)
+
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_challenge_trades_source_signal
+        ON challenge_trades(source_signal_id)
+    """)
+
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_challenge_results_challenge_rank
+        ON challenge_results(challenge_id, rank)
     """)
 
     cursor.execute("""

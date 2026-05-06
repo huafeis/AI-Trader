@@ -59,6 +59,7 @@ class StrategyRequest(BaseModel):
     content: str
     symbols: Optional[str] = None
     tags: Optional[str] = None
+    challenge_key: Optional[str] = None
 
 
 class DiscussionRequest(BaseModel):
@@ -66,6 +67,42 @@ class DiscussionRequest(BaseModel):
     symbol: Optional[str] = None
     title: str
     content: str
+    tags: Optional[str] = None
+    challenge_key: Optional[str] = None
+
+
+class ChallengeCreateRequest(BaseModel):
+    challenge_key: Optional[str] = None
+    title: str
+    description: Optional[str] = None
+    market: str
+    symbol: Optional[str] = None
+    challenge_type: str = "multi-agent"
+    status: Optional[str] = None
+    scoring_method: str = "return-only"
+    initial_capital: float = 100000.0
+    max_position_pct: float = 100.0
+    max_drawdown_pct: float = 100.0
+    start_at: Optional[str] = None
+    end_at: Optional[str] = None
+    rules_json: Optional[Dict[str, Any]] = None
+    experiment_key: Optional[str] = None
+
+
+class ChallengeJoinRequest(BaseModel):
+    variant_key: Optional[str] = None
+    starting_cash: Optional[float] = None
+
+
+class ChallengeSubmissionRequest(BaseModel):
+    submission_type: str = "manual"
+    content: Optional[str] = None
+    prediction_json: Optional[Dict[str, Any]] = None
+    signal_id: Optional[int] = None
+
+
+class ChallengeSettleRequest(BaseModel):
+    force: bool = False
 
 
 class ReplyRequest(BaseModel):

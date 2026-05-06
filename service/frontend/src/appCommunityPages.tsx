@@ -75,6 +75,18 @@ function AuthShell({
   )
 }
 
+async function fetchActiveChallengeOptions() {
+  try {
+    const res = await fetch(`${API_BASE}/challenges?status=active&limit=100`)
+    if (!res.ok) return []
+    const data = await res.json()
+    return data.challenges || []
+  } catch (e) {
+    console.error(e)
+    return []
+  }
+}
+
 function SignalCard({
   signal,
   onRefresh,
@@ -320,7 +332,8 @@ export function StrategiesPage() {
   const [viewerId, setViewerId] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
-  const [formData, setFormData] = useState({ title: '', content: '', symbols: '', tags: '', market: 'us-stock' })
+  const [formData, setFormData] = useState({ title: '', content: '', symbols: '', tags: '', market: 'us-stock', challenge_key: '' })
+  const [activeChallenges, setActiveChallenges] = useState<any[]>([])
   const [sort, setSort] = useState<'new' | 'active' | 'following'>('active')
   const { t, language } = useLanguage()
   const location = useLocation()
@@ -331,6 +344,7 @@ export function StrategiesPage() {
 
   useEffect(() => {
     loadStrategies(strategyPage)
+    fetchActiveChallengeOptions().then(setActiveChallenges)
     if (token) {
       loadViewerContext()
     }
@@ -432,10 +446,11 @@ export function StrategiesPage() {
           content: formData.content,
           symbols: formData.symbols,
           tags: formData.tags,
+          challenge_key: formData.challenge_key || undefined,
         })
       })
       if (res.ok) {
-        setFormData({ title: '', content: '', symbols: '', tags: '', market: 'us-stock' })
+        setFormData({ title: '', content: '', symbols: '', tags: '', market: 'us-stock', challenge_key: '' })
         setShowForm(false)
         setStrategyPage(1)
         loadStrategies(1)
@@ -496,6 +511,21 @@ export function StrategiesPage() {
                 {MARKETS.filter(m => m.value !== 'all').map(m => (
                   <option key={m.value} value={m.value} disabled={!m.supported}>
                     {language === 'zh' ? m.labelZh : m.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">{language === 'zh' ? '绑定挑战（可选）' : 'Challenge (optional)'}</label>
+              <select
+                className="form-select"
+                value={formData.challenge_key}
+                onChange={e => setFormData({ ...formData, challenge_key: e.target.value })}
+              >
+                <option value="">{language === 'zh' ? '不绑定' : 'No challenge'}</option>
+                {activeChallenges.map((challenge: any) => (
+                  <option key={challenge.challenge_key} value={challenge.challenge_key}>
+                    {challenge.title}
                   </option>
                 ))}
               </select>
@@ -627,7 +657,8 @@ export function DiscussionsPage() {
   const [viewerId, setViewerId] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
-  const [formData, setFormData] = useState({ title: '', content: '', tags: '', market: 'us-stock' })
+  const [formData, setFormData] = useState({ title: '', content: '', tags: '', market: 'us-stock', challenge_key: '' })
+  const [activeChallenges, setActiveChallenges] = useState<any[]>([])
   const [sort, setSort] = useState<'new' | 'active' | 'following'>('active')
   const { t, language } = useLanguage()
   const location = useLocation()
@@ -639,6 +670,7 @@ export function DiscussionsPage() {
 
   useEffect(() => {
     loadDiscussions(discussionPage)
+    fetchActiveChallengeOptions().then(setActiveChallenges)
     if (token) {
       loadRecentNotifications()
       loadViewerContext()
@@ -724,10 +756,11 @@ export function DiscussionsPage() {
           title: formData.title,
           content: formData.content,
           tags: formData.tags,
+          challenge_key: formData.challenge_key || undefined,
         })
       })
       if (res.ok) {
-        setFormData({ title: '', content: '', tags: '', market: 'us-stock' })
+        setFormData({ title: '', content: '', tags: '', market: 'us-stock', challenge_key: '' })
         setShowForm(false)
         setDiscussionPage(1)
         loadDiscussions(1)
@@ -874,6 +907,21 @@ export function DiscussionsPage() {
                 {MARKETS.filter(m => m.value !== 'all').map(m => (
                   <option key={m.value} value={m.value} disabled={!m.supported}>
                     {language === 'zh' ? m.labelZh : m.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">{language === 'zh' ? '绑定挑战（可选）' : 'Challenge (optional)'}</label>
+              <select
+                className="form-select"
+                value={formData.challenge_key}
+                onChange={e => setFormData({ ...formData, challenge_key: e.target.value })}
+              >
+                <option value="">{language === 'zh' ? '不绑定' : 'No challenge'}</option>
+                {activeChallenges.map((challenge: any) => (
+                  <option key={challenge.challenge_key} value={challenge.challenge_key}>
+                    {challenge.title}
                   </option>
                 ))}
               </select>
